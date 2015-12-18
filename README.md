@@ -2,7 +2,8 @@
 
 # Notice
 
-The files for the first assessment are in this same folder
+The files for the first assessment are in this same folder. The Rmarkdown file is called "firstProyect.Rmd"
+and the corresponding html file is "firstProyect.html".
 
 It is now possible to collect a large amount of data about personal
 movement using activity monitoring devices such as a
