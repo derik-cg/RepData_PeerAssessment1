@@ -1,25 +1,186 @@
 ---
-title: "Reproducible Research: Peer Assessment 1"
-output: 
-  html_document:
-    keep_md: true
+title: "Rep_Data-1-Asessment"
+author: "Derik Castillo"
+date: "December 15, 2015"
+output: html_document
+keep_md: true
 ---
 
+This document presents all steps in the completion of the first assessment for the Reproducible Research course, as part of the Data Science specialization.
 
-## Loading and preprocessing the data
+## General setup
 
+Load packages
 
+```{r library}
+library(timeDate)
+library(lattice)
+```
 
-## What is mean total number of steps taken per day?
+The first part of the setup is changing to the working directory
 
+```{r directory}
+setwd("C:/Users/Derik/Documents/R/coursera/steps")
+```
 
+Since the data is contained in the repository, there is no need to download the data from the provided URL. This step is therefore omitted.
 
-## What is the average daily activity pattern?
+The next step is to unzip and read the data. 
 
+```{r unzip}
+unzip("activity.zip")
+steps<-read.csv("activity.csv")
+```
 
+To have a quick look at the data and its main characteristics, including the type of variables that were read, use the `str` function.
+
+```{r str}
+str(steps)
+```
+
+The ``date` variable is a text, and moreover, was read as a factor. This is useful fr the first part of the questions, but in orer to get a time series, it will be necessary to transform it into a POSIXct variable.
+
+```{r date}
+steps$days<-strptime(steps$date, format="%Y-%m-%d")
+```
+
+## Mean number of steps
+
+The first result to obtain is the mean total number of steps per day.  This can be done with the factor date.
+
+```{r totals by day}
+totalday<-aggregate(steps ~ date, data=steps, sum)
+```
+
+Using the second column of the aggregated data I can create the histogram
+```{r histogram}
+hist(totalday$steps,breaks=10)
+```
+
+This histogram shows a roughly symmetrical pattern, with a maximum of days with 10000 steps, and few days with very small number of steps and very high number of steps.
+
+The mean and median of the total number of steps per day is
+
+```{r mean-median}
+aggregate(steps ~ date, data=steps, FUN=function(x) c(mean=mean(x),median=median(x)))
+```
+
+## Average daily activity pattern
+
+To display the daily activity pattern a times series will be plotted. This requieres the date to be in the POSIX format. Given that there are multiple time intervals labeled "0", "5", "10", and so on, first the mean for each time interval will be computed, and then the times series wil be produced. This ensures that each time interval is plotted only once. Moreover, one can assume that all intervals with the same label have similar characteristics.
+
+This may not be considered a times series, because it does not represents a process sampled at regular intervals , but an aggregated measure.
+
+```{r time series}
+steps.min<-aggregate(steps ~ interval, data = steps, FUN = "mean")
+plot(steps~interval, data=steps.min,type="l",ylab="mean num. steps")
+```
+
+One can ask for the maximum activity across all 5-minute intervals. From the data that produced the time-series plot, it is possible to select the maximum and then obtain the label for the corresponding interval.
+
+```{r max steps}
+pos<-which(steps.min$steps==max(steps.min$steps))
+max.int<-steps.min[pos,1]
+max.steps<-steps.min[pos,2]
+```
+
+Therefore, the time interval with maximum activity, measured as the average number of steps across al time intervals with the same label is `r max.int`, with an average of  `r max.steps` steps.
 
 ## Imputing missing values
 
+The data contains missing data, coded as `NA`. To get an idea of how many `NA`s are in the dataset and where are they, the followig table contains the number of missing data for each column. 
 
+```{r na}
+colSums(is.na(steps))
+```
 
-## Are there differences in activity patterns between weekdays and weekends?
+It is clear that only the `steps` variable contains `NA`.
+
+The following step is imputing missing values. To get an idea if the `NA` are clumped together or dispersed along time, missing data coded as ones and valid data coded as zeros will be plotted against the index of the variable.
+
+```{r na plot}
+plot(is.na(steps$steps))
+```
+
+The plot reveals seven stretches of missing values, along the variable. The size of the stretches seems considerable, to get a better idea, lets compute the size of each stretch of `NA`.
+
+```{r na stretches size}
+#define variables
+stretches<-rep(0,7)
+n<-1
+#do a for loop for all the indexes in the variable
+for (i in 1:(length(steps$steps)-1))
+{ #if there are two NA in a row
+  if (is.na(steps$steps[i]) & is.na(steps$steps[i+1])) 
+  { #increase stretch size
+    stretches[n]<-stretches[n]+1
+  }
+  if (is.na(steps$steps[i]) & !is.na(steps$steps[i+1]))
+  { #if the stretch ends, complete the stretch size and move to next one
+    stretches[n]<-stretches[n]+1
+    n<-n+1
+  }
+}
+```
+
+The seven lengths of `NA` in the dataset are `r stretches`. Given the size of the stretches of missing data, the best way to imputing them is to use the mean for the number of steps in the five-minute interval that corresponds. The mean number of steps will be taken from the `steps.min` object. The imputed data will be in the variable steps.imputed
+
+```{r imputing}
+steps.imputed<-steps
+for (i in 1:length(steps.imputed$steps))
+{
+  if (is.na(steps.imputed$steps[i]))
+  {
+  #i is the index. find the interval label
+  target<-steps.imputed$interval[i]
+  #find the row number in the minutes mean table
+  min.row<-which(steps.min$interval==target,arr.ind = T)
+  #copy it to the original variable with missing `steps`
+  steps.imputed$steps[i]<-steps.min[min.row,2]
+  }
+}
+```
+
+The average number of steps by day can be calculates using the same principle as above. I first compute the aggregated means for each day and then the histgram (with the same number of breaks for comparison).
+
+```{r avg imputed}
+#this is the average by day
+avg.steps.imp<-aggregate(steps ~ date, data=steps.imputed, FUN=sum)
+#now the histogram with 10 breaks
+hist(avg.steps.imp$steps,breaks=10)
+```
+
+The mean and median number of steps per day can be calculated as above using
+
+```{r mean median imputed}
+aggregate(steps ~ date, data=steps.imputed, FUN=function(x) c(mean=mean(x),median=median(x)))
+``` 
+
+To compare both histograms, and see the impact of the imputing the data, both histograms will be put side by side.
+
+```{r both hist}
+par(mfrow=c(1,2))
+hist(totalday$steps,breaks=10, main="no imputed")
+hist(avg.steps.imp$steps,breaks=10, main="imputed")
+```
+
+The effect of imputing values can be expected to increase the total number of steps per day. The reason is that all zeros in the database, are now imputed with positive numbers, thus increasing the daily total.
+
+The next step is to compare weekdays and weekends. A new variable is creates, which is a factor with two levels. Weekdays and Weekends
+
+```{r wkdays}
+wday<-isWeekday(steps.imputed$days)
+wday<-factor(wday,levels=c("TRUE","FALSE"),labels=c("Weekdays","Weekends"))
+steps.imputed$wday<-wday
+```
+
+Then a lattice plot is produced to compare the mean activity for each 5-minute interval in the imputed dasta set.
+
+```{r wdays}
+#first aggregate the means or the steps by interval
+step.min.imp<-aggregate(steps~interval, data=steps.imputed, FUN=mean)
+#then order by interval
+steps.imputed.order<-steps.imputed[order(steps.imputed$interval),]
+#then produce the plot
+xyplot(steps~interval|wday,data=steps.imputed.order,layout=c(1,2),type="l")
+```
