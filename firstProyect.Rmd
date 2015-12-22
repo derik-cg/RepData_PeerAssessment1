@@ -2,8 +2,9 @@
 title: "Rep_Data-1-Asessment"
 author: "Derik Castillo"
 date: "December 15, 2015"
-output: html_document
-keep_md: true
+output: 
+  html_document:
+    keep_md: true
 ---
 
 This document presents all steps in the completion of the first assessment for the Reproducible Research course, as part of the Data Science specialization.
